@@ -312,3 +312,235 @@ export const activities = pgTable("activities", {
   message: text("message").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ── AI Agents ─────────────────────────────────────────
+
+export const aiAgents = pgTable("ai_agents", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  triggerType: text("trigger_type", {
+    enum: [
+      "low-stock",
+      "overstock",
+      "price-drop",
+      "supplier-delay",
+      "expiry-approaching",
+      "demand-spike",
+    ],
+  }).notNull(),
+  conditions: jsonb("conditions").$type<Record<string, unknown>>(),
+  actions: jsonb("actions").$type<Record<string, unknown>>(),
+  isActive: boolean("is_active").default(true),
+  lastTriggered: timestamp("last_triggered"),
+  executionCount: integer("execution_count").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const aiAgentsRelations = relations(aiAgents, ({ many }) => ({
+  executions: many(agentExecutions),
+}));
+
+// ── Agent Executions ──────────────────────────────────
+
+export const agentExecutions = pgTable("agent_executions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  agentId: uuid("agent_id")
+    .references(() => aiAgents.id, { onDelete: "cascade" })
+    .notNull(),
+  triggerData: jsonb("trigger_data").$type<Record<string, unknown>>(),
+  actionTaken: text("action_taken").notNull(),
+  result: text("result"),
+  status: text("status", {
+    enum: ["success", "failed", "pending", "rolled-back"],
+  }),
+  productsAffected: jsonb("products_affected").$type<string[]>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const agentExecutionsRelations = relations(
+  agentExecutions,
+  ({ one }) => ({
+    agent: one(aiAgents, {
+      fields: [agentExecutions.agentId],
+      references: [aiAgents.id],
+    }),
+  })
+);
+
+// ── Carbon Footprints ─────────────────────────────────
+
+export const carbonFootprints = pgTable("carbon_footprints", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  transportEmissions: numeric("transport_emissions", { precision: 10, scale: 2 }).default("0"),
+  manufacturingEmissions: numeric("manufacturing_emissions", { precision: 10, scale: 2 }).default("0"),
+  packagingEmissions: numeric("packaging_emissions", { precision: 10, scale: 2 }).default("0"),
+  storageEmissions: numeric("storage_emissions", { precision: 10, scale: 2 }).default("0"),
+  totalEmissions: numeric("total_emissions", { precision: 10, scale: 2 }).default("0"),
+  sustainabilityScore: integer("sustainability_score"),
+  lastCalculated: timestamp("last_calculated").defaultNow(),
+  notes: text("notes"),
+});
+
+export const carbonFootprintsRelations = relations(
+  carbonFootprints,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [carbonFootprints.productId],
+      references: [products.id],
+    }),
+  })
+);
+
+// ── IoT Sensors ───────────────────────────────────────
+
+export const iotSensors = pgTable("iot_sensors", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id, {
+    onDelete: "set null",
+  }),
+  sensorName: text("sensor_name").notNull(),
+  sensorType: text("sensor_type", {
+    enum: ["temperature", "humidity", "vibration", "light"],
+  }).notNull(),
+  location: text("location"),
+  currentValue: numeric("current_value", { precision: 10, scale: 2 }),
+  unit: text("unit"),
+  minThreshold: numeric("min_threshold", { precision: 10, scale: 2 }),
+  maxThreshold: numeric("max_threshold", { precision: 10, scale: 2 }),
+  status: text("status", {
+    enum: ["normal", "warning", "critical"],
+  }).default("normal"),
+  isActive: boolean("is_active").default(true),
+  lastReading: timestamp("last_reading").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const iotSensorsRelations = relations(iotSensors, ({ one, many }) => ({
+  warehouse: one(warehouses, {
+    fields: [iotSensors.warehouseId],
+    references: [warehouses.id],
+  }),
+  readings: many(iotReadings),
+}));
+
+// ── IoT Readings ──────────────────────────────────────
+
+export const iotReadings = pgTable("iot_readings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  sensorId: uuid("sensor_id")
+    .references(() => iotSensors.id, { onDelete: "cascade" })
+    .notNull(),
+  value: numeric("value", { precision: 10, scale: 2 }).notNull(),
+  status: text("status", {
+    enum: ["normal", "warning", "critical"],
+  }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const iotReadingsRelations = relations(iotReadings, ({ one }) => ({
+  sensor: one(iotSensors, {
+    fields: [iotReadings.sensorId],
+    references: [iotSensors.id],
+  }),
+}));
+
+// ── Provenance Records ────────────────────────────────
+
+export const provenanceRecords = pgTable("provenance_records", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id").references(() => products.id, {
+    onDelete: "set null",
+  }),
+  eventType: text("event_type", {
+    enum: [
+      "manufactured",
+      "shipped",
+      "received",
+      "inspected",
+      "stored",
+      "sold",
+      "returned",
+    ],
+  }).notNull(),
+  description: text("description").notNull(),
+  actor: text("actor").notNull(),
+  location: text("location"),
+  previousHash: text("previous_hash"),
+  hash: text("hash").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  verified: boolean("verified").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const provenanceRecordsRelations = relations(
+  provenanceRecords,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [provenanceRecords.productId],
+      references: [products.id],
+    }),
+  })
+);
+
+// ── Demand Signals ────────────────────────────────────
+
+export const demandSignals = pgTable("demand_signals", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  signalType: text("signal_type", {
+    enum: ["purchase", "view", "cart-add", "wishlist", "return", "review"],
+  }).notNull(),
+  channel: text("channel", {
+    enum: ["web", "mobile", "in-store", "wholesale", "marketplace"],
+  }),
+  customerSegment: text("customer_segment", {
+    enum: ["new", "repeat", "wholesale", "enterprise"],
+  }),
+  quantity: integer("quantity").default(1),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const demandSignalsRelations = relations(demandSignals, ({ one }) => ({
+  product: one(products, {
+    fields: [demandSignals.productId],
+    references: [products.id],
+  }),
+}));
+
+// ── Perishable Batches ────────────────────────────────
+
+export const perishableBatches = pgTable("perishable_batches", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  batchNumber: text("batch_number").notNull(),
+  quantity: integer("quantity").notNull(),
+  manufacturingDate: timestamp("manufacturing_date"),
+  expiryDate: timestamp("expiry_date").notNull(),
+  daysUntilExpiry: integer("days_until_expiry"),
+  status: text("status", {
+    enum: ["fresh", "approaching-expiry", "expired", "disposed"],
+  }).default("fresh"),
+  storageTemp: numeric("storage_temp", { precision: 5, scale: 2 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const perishableBatchesRelations = relations(
+  perishableBatches,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [perishableBatches.productId],
+      references: [products.id],
+    }),
+  })
+);

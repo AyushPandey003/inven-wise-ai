@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, Package, ShoppingCart, AlertTriangle, Bot, Boxes, Truck,
   FolderOpen, History, DollarSign, Warehouse, BarChart3, Wifi, WifiOff,
+  Brain, Box, Zap, Leaf, Radio, Shield, TrendingUp,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useInventory } from "@/context/InventoryContext";
@@ -24,6 +25,16 @@ const manageNav = [
   { title: "Stock History", url: "/stock-history", icon: History },
   { title: "Pricing & Variants", url: "/pricing", icon: DollarSign },
   { title: "Reports", url: "/reports", icon: BarChart3 },
+];
+
+const intelligenceNav = [
+  { title: "AI Agents", url: "/ai-agents", icon: Brain },
+  { title: "Digital Twin", url: "/digital-twin", icon: Box },
+  { title: "Stress Testing", url: "/stress-test", icon: Zap },
+  { title: "Sustainability", url: "/sustainability", icon: Leaf },
+  { title: "IoT Sensors", url: "/iot-sensors", icon: Radio },
+  { title: "Provenance", url: "/provenance", icon: Shield },
+  { title: "Demand Intel", url: "/demand-intelligence", icon: TrendingUp },
 ];
 
 export function AppSidebar() {
@@ -81,6 +92,7 @@ export function AppSidebar() {
       <SidebarContent>
         {renderNav(mainNav, "Navigation")}
         {renderNav(manageNav, "Management")}
+        {renderNav(intelligenceNav, "Intelligence")}
       </SidebarContent>
       {!collapsed && (
         <SidebarFooter className="p-4 space-y-2">

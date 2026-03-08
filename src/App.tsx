@@ -16,6 +16,13 @@ import StockHistory from "@/pages/StockHistory";
 import Pricing from "@/pages/Pricing";
 import Warehouses from "@/pages/Warehouses";
 import Reports from "@/pages/Reports";
+import AIAgents from "@/pages/AIAgents";
+import DigitalTwin from "@/pages/DigitalTwin";
+import StressTest from "@/pages/StressTest";
+import Sustainability from "@/pages/Sustainability";
+import IoTSensors from "@/pages/IoTSensors";
+import Provenance from "@/pages/Provenance";
+import DemandIntelligence from "@/pages/DemandIntelligence";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -48,6 +55,13 @@ const App = () => (
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/warehouses" element={<Warehouses />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/ai-agents" element={<AIAgents />} />
+              <Route path="/digital-twin" element={<DigitalTwin />} />
+              <Route path="/stress-test" element={<StressTest />} />
+              <Route path="/sustainability" element={<Sustainability />} />
+              <Route path="/iot-sensors" element={<IoTSensors />} />
+              <Route path="/provenance" element={<Provenance />} />
+              <Route path="/demand-intelligence" element={<DemandIntelligence />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
