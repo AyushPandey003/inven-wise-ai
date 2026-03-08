@@ -15,7 +15,7 @@ import { ProductDetailSheet } from "@/components/inventory/ProductDetailSheet";
 const PAGE_SIZE = 10;
 
 const emptyProduct = {
-  sku: "", name: "", category: "Electronics", quantity: 0, reorderPoint: 10, unitCost: 0, supplier: "",
+  sku: "", name: "", category: "Electronics", quantity: 0, reorderPoint: 10, unitCost: 0, sellingPrice: 0, supplier: "",
 };
 
 export default function Inventory() {
