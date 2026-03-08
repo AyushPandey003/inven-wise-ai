@@ -15,7 +15,7 @@ import { ProductDetailSheet } from "@/components/inventory/ProductDetailSheet";
 const PAGE_SIZE = 10;
 
 const emptyProduct = {
-  sku: "", name: "", category: "Electronics", quantity: 0, reorderPoint: 10, unitCost: 0, supplier: "",
+  sku: "", name: "", category: "Electronics", quantity: 0, reorderPoint: 10, unitCost: 0, sellingPrice: 0, supplier: "",
 };
 
 export default function Inventory() {
@@ -205,7 +205,7 @@ export default function Inventory() {
                   <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              {([["quantity", "Quantity"], ["reorderPoint", "Reorder Point"], ["unitCost", "Unit Cost"]] as const).map(([key, label]) => (
+              {([["quantity", "Quantity"], ["reorderPoint", "Reorder Point"], ["unitCost", "Unit Cost"], ["sellingPrice", "Selling Price"]] as const).map(([key, label]) => (
                 <div key={key}>
                   <Label className="text-xs text-muted-foreground">{label}</Label>
                   <Input type="number" value={(editingProduct as any)[key] ?? 0} onChange={(e) => setEditingProduct({ ...editingProduct, [key]: Number(e.target.value) })} />
