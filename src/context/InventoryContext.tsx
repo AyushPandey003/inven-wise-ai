@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useReducer, useCallback } from "react";
 import {
   Product, Alert, PurchaseOrder, ActivityItem, ProductStatus, AlertType, POStatus,
-  initialProducts, initialActivities, categories,
+  Supplier, Category, StockEvent,
+  initialProducts, initialActivities, initialSuppliers, initialCategories, initialStockEvents, categories,
 } from "@/data/inventory";
 import { toast } from "sonner";
 
@@ -10,6 +11,9 @@ interface State {
   alerts: Alert[];
   orders: PurchaseOrder[];
   activities: ActivityItem[];
+  suppliers: Supplier[];
+  categoriesList: Category[];
+  stockEvents: StockEvent[];
 }
 
 type Action =
@@ -20,7 +24,14 @@ type Action =
   | { type: "DISMISS_ALERT"; id: string }
   | { type: "ADD_ORDER"; order: PurchaseOrder }
   | { type: "UPDATE_ORDER_STATUS"; id: string; status: POStatus }
-  | { type: "ADD_ACTIVITY"; activity: ActivityItem };
+  | { type: "ADD_ACTIVITY"; activity: ActivityItem }
+  | { type: "ADD_SUPPLIER"; supplier: Supplier }
+  | { type: "UPDATE_SUPPLIER"; supplier: Supplier }
+  | { type: "DELETE_SUPPLIER"; id: string }
+  | { type: "ADD_CATEGORY"; category: Category }
+  | { type: "UPDATE_CATEGORY"; category: Category }
+  | { type: "DELETE_CATEGORY"; id: string }
+  | { type: "ADD_STOCK_EVENT"; event: StockEvent };
 
 function getStatus(qty: number, reorder: number): ProductStatus {
   if (qty === 0) return "out";
@@ -72,6 +83,20 @@ function reducer(state: State, action: Action): State {
       return { ...state, orders: state.orders.map((o) => (o.id === action.id ? { ...o, status: action.status } : o)) };
     case "ADD_ACTIVITY":
       return { ...state, activities: [action.activity, ...state.activities].slice(0, 50) };
+    case "ADD_SUPPLIER":
+      return { ...state, suppliers: [...state.suppliers, action.supplier] };
+    case "UPDATE_SUPPLIER":
+      return { ...state, suppliers: state.suppliers.map((s) => (s.id === action.supplier.id ? action.supplier : s)) };
+    case "DELETE_SUPPLIER":
+      return { ...state, suppliers: state.suppliers.filter((s) => s.id !== action.id) };
+    case "ADD_CATEGORY":
+      return { ...state, categoriesList: [...state.categoriesList, action.category] };
+    case "UPDATE_CATEGORY":
+      return { ...state, categoriesList: state.categoriesList.map((c) => (c.id === action.category.id ? action.category : c)) };
+    case "DELETE_CATEGORY":
+      return { ...state, categoriesList: state.categoriesList.filter((c) => c.id !== action.id) };
+    case "ADD_STOCK_EVENT":
+      return { ...state, stockEvents: [action.event, ...state.stockEvents].slice(0, 200) };
     default:
       return state;
   }
@@ -102,6 +127,9 @@ const initialState: State = {
     },
   ],
   activities: initialActivities,
+  suppliers: initialSuppliers,
+  categoriesList: initialCategories,
+  stockEvents: initialStockEvents,
 };
 
 interface ContextValue extends State {
@@ -113,6 +141,13 @@ interface ContextValue extends State {
   dismissAlert: (id: string) => void;
   createOrder: (o: Omit<PurchaseOrder, "id" | "createdAt">) => void;
   updateOrderStatus: (id: string, status: POStatus) => void;
+  addSupplier: (s: Omit<Supplier, "id" | "createdAt">) => void;
+  updateSupplier: (s: Supplier) => void;
+  deleteSupplier: (id: string) => void;
+  addCategory: (c: Omit<Category, "id" | "createdAt">) => void;
+  updateCategory: (c: Category) => void;
+  deleteCategory: (id: string) => void;
+  addStockEvent: (e: Omit<StockEvent, "id">) => void;
 }
 
 const InventoryContext = createContext<ContextValue | null>(null);
@@ -138,11 +173,14 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const restockProduct = useCallback((id: string, qty: number) => {
+    const p = state.products.find((pr) => pr.id === id);
     dispatch({ type: "RESTOCK", id, quantity: qty });
-    const p = initialProducts.find((pr) => pr.id === id);
     dispatch({ type: "ADD_ACTIVITY", activity: { id: `a-${Date.now()}`, type: "restock", message: `Restocked ${qty}x ${p?.name || id}`, timestamp: new Date().toISOString() } });
+    if (p) {
+      dispatch({ type: "ADD_STOCK_EVENT", event: { id: `se-${Date.now()}`, productId: id, productName: p.name, type: "restock", quantityChange: qty, previousQty: p.quantity, newQty: p.quantity + qty, reason: "Manual restock", performedBy: "Current User", timestamp: new Date().toISOString() } });
+    }
     toast.success("Product restocked");
-  }, []);
+  }, [state.products]);
 
   const dismissAlert = useCallback((id: string) => {
     dispatch({ type: "DISMISS_ALERT", id });
@@ -160,8 +198,51 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     toast.success(`Order ${id} status updated to ${status}`);
   }, []);
 
+  const addSupplier = useCallback((s: Omit<Supplier, "id" | "createdAt">) => {
+    const supplier: Supplier = { ...s, id: `sup-${Date.now()}`, createdAt: new Date().toISOString() };
+    dispatch({ type: "ADD_SUPPLIER", supplier });
+    toast.success(`Supplier "${s.name}" added`);
+  }, []);
+
+  const updateSupplier = useCallback((s: Supplier) => {
+    dispatch({ type: "UPDATE_SUPPLIER", supplier: s });
+    toast.success(`Supplier "${s.name}" updated`);
+  }, []);
+
+  const deleteSupplier = useCallback((id: string) => {
+    dispatch({ type: "DELETE_SUPPLIER", id });
+    toast.success("Supplier deleted");
+  }, []);
+
+  const addCategory = useCallback((c: Omit<Category, "id" | "createdAt">) => {
+    const category: Category = { ...c, id: `cat-${Date.now()}`, createdAt: new Date().toISOString() };
+    dispatch({ type: "ADD_CATEGORY", category });
+    toast.success(`Category "${c.name}" added`);
+  }, []);
+
+  const updateCategory = useCallback((c: Category) => {
+    dispatch({ type: "UPDATE_CATEGORY", category: c });
+    toast.success(`Category "${c.name}" updated`);
+  }, []);
+
+  const deleteCategory = useCallback((id: string) => {
+    dispatch({ type: "DELETE_CATEGORY", id });
+    toast.success("Category deleted");
+  }, []);
+
+  const addStockEvent = useCallback((e: Omit<StockEvent, "id">) => {
+    dispatch({ type: "ADD_STOCK_EVENT", event: { ...e, id: `se-${Date.now()}` } });
+  }, []);
+
   return (
-    <InventoryContext.Provider value={{ ...state, dispatch, addProduct, updateProduct, deleteProducts, restockProduct, dismissAlert, createOrder, updateOrderStatus }}>
+    <InventoryContext.Provider value={{
+      ...state, dispatch,
+      addProduct, updateProduct, deleteProducts, restockProduct, dismissAlert,
+      createOrder, updateOrderStatus,
+      addSupplier, updateSupplier, deleteSupplier,
+      addCategory, updateCategory, deleteCategory,
+      addStockEvent,
+    }}>
       {children}
     </InventoryContext.Provider>
   );
