@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
-import { useInventory } from "@/context/InventoryContext";
-import { Product, categories } from "@/data/inventory";
+import { useInventory, Product } from "@/context/InventoryContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,11 +14,12 @@ import { ProductDetailSheet } from "@/components/inventory/ProductDetailSheet";
 const PAGE_SIZE = 10;
 
 const emptyProduct = {
-  sku: "", name: "", category: "Electronics", quantity: 0, reorderPoint: 10, unitCost: 0, sellingPrice: 0, supplier: "",
+  sku: "", name: "", description: "", category: "Electronics", quantity: 0, reorderPoint: 10, unitCost: 0, sellingPrice: 0, supplier: "", barcode: "", imageUrl: "",
 };
 
 export default function Inventory() {
-  const { products, addProduct, updateProduct, deleteProducts, restockProduct } = useInventory();
+  const { products, categoriesList, suppliers, addProduct, updateProduct, deleteProducts, restockProduct } = useInventory();
+  const categories = categoriesList.map((c) => c.name);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -191,18 +191,37 @@ export default function Inventory() {
         <DialogContent className="bg-card border-border">
           <DialogHeader><DialogTitle className="font-mono">{editingProduct?.id ? "Edit Product" : "Add Product"}</DialogTitle></DialogHeader>
           {editingProduct && (
-            <div className="grid grid-cols-2 gap-3">
-              {([["sku", "SKU"], ["name", "Product Name"], ["supplier", "Supplier"]] as const).map(([key, label]) => (
-                <div key={key} className={key === "name" ? "col-span-2" : ""}>
-                  <Label className="text-xs text-muted-foreground">{label}</Label>
-                  <Input value={(editingProduct as any)[key] || ""} onChange={(e) => setEditingProduct({ ...editingProduct, [key]: e.target.value })} />
-                </div>
-              ))}
+            <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-auto pr-1">
+              <div>
+                <Label className="text-xs text-muted-foreground">SKU</Label>
+                <Input value={editingProduct.sku || ""} onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Barcode</Label>
+                <Input value={(editingProduct as any).barcode || ""} onChange={(e) => setEditingProduct({ ...editingProduct, barcode: e.target.value })} placeholder="Optional" />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-xs text-muted-foreground">Product Name</Label>
+                <Input value={editingProduct.name || ""} onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-xs text-muted-foreground">Description</Label>
+                <Input value={(editingProduct as any).description || ""} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} placeholder="Optional" />
+              </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Category</Label>
                 <Select value={editingProduct.category || "Electronics"} onValueChange={(v) => setEditingProduct({ ...editingProduct, category: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Supplier</Label>
+                <Select value={editingProduct.supplier || ""} onValueChange={(v) => setEditingProduct({ ...editingProduct, supplier: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map((s) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
               {([["quantity", "Quantity"], ["reorderPoint", "Reorder Point"], ["unitCost", "Unit Cost"], ["sellingPrice", "Selling Price"]] as const).map(([key, label]) => (
@@ -211,6 +230,10 @@ export default function Inventory() {
                   <Input type="number" value={(editingProduct as any)[key] ?? 0} onChange={(e) => setEditingProduct({ ...editingProduct, [key]: Number(e.target.value) })} />
                 </div>
               ))}
+              <div className="col-span-2">
+                <Label className="text-xs text-muted-foreground">Image URL</Label>
+                <Input value={(editingProduct as any).imageUrl || ""} onChange={(e) => setEditingProduct({ ...editingProduct, imageUrl: e.target.value })} placeholder="https://... or use UploadThing" />
+              </div>
             </div>
           )}
           <DialogFooter>

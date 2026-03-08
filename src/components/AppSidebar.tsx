@@ -1,4 +1,7 @@
-import { LayoutDashboard, Package, ShoppingCart, AlertTriangle, Bot, Boxes, Truck, FolderOpen, History, DollarSign } from "lucide-react";
+import {
+  LayoutDashboard, Package, ShoppingCart, AlertTriangle, Bot, Boxes, Truck,
+  FolderOpen, History, DollarSign, Warehouse, BarChart3, Wifi, WifiOff,
+} from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useInventory } from "@/context/InventoryContext";
 import {
@@ -17,14 +20,16 @@ const mainNav = [
 const manageNav = [
   { title: "Suppliers", url: "/suppliers", icon: Truck },
   { title: "Categories", url: "/categories", icon: FolderOpen },
+  { title: "Warehouses", url: "/warehouses", icon: Warehouse },
   { title: "Stock History", url: "/stock-history", icon: History },
   { title: "Pricing & Variants", url: "/pricing", icon: DollarSign },
+  { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { alerts, products } = useInventory();
+  const { alerts, products, isApiConnected } = useInventory();
   const activeAlerts = alerts.filter((a) => !a.dismissed).length;
   const totalValue = products.reduce((s, p) => s + p.quantity * p.unitCost, 0);
 
@@ -78,11 +83,24 @@ export function AppSidebar() {
         {renderNav(manageNav, "Management")}
       </SidebarContent>
       {!collapsed && (
-        <SidebarFooter className="p-4">
+        <SidebarFooter className="p-4 space-y-2">
           <div className="rounded-lg bg-secondary/50 p-3 space-y-1.5">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Portfolio Value</p>
             <p className="font-mono text-lg font-bold text-primary">${totalValue.toLocaleString()}</p>
             <p className="text-[10px] text-muted-foreground">{products.length} products tracked</p>
+          </div>
+          <div className="flex items-center gap-1.5 px-1">
+            {isApiConnected ? (
+              <>
+                <Wifi className="h-3 w-3 text-success" />
+                <span className="text-[10px] text-success">Connected to API</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-3 w-3 text-danger" />
+                <span className="text-[10px] text-danger">API Disconnected</span>
+              </>
+            )}
           </div>
         </SidebarFooter>
       )}

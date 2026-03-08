@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useInventory } from "@/context/InventoryContext";
-import { StockEvent } from "@/data/inventory";
+import { StockEvent } from "@/context/InventoryContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";

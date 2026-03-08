@@ -19,7 +19,7 @@ const CHART_COLORS = [
 ];
 
 export default function Dashboard() {
-  const { products, alerts, orders, activities } = useInventory();
+  const { products, alerts, orders, activities, dashboard, isLoading, isApiConnected } = useInventory();
 
   const stats = useMemo(() => {
     const totalSKUs = products.length;

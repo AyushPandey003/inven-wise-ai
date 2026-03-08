@@ -1,4 +1,4 @@
-import { Product } from "@/data/inventory";
+import { Product } from "@/context/InventoryContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Package, Trash2, ArrowUpDown, Eye } from "lucide-react";

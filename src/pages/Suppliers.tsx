@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useInventory } from "@/context/InventoryContext";
-import { Supplier } from "@/data/inventory";
+import { Supplier } from "@/context/InventoryContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

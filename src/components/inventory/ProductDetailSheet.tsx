@@ -1,4 +1,4 @@
-import { Product } from "@/data/inventory";
+import { Product } from "@/context/InventoryContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -38,9 +38,18 @@ export function ProductDetailSheet({ product, open, onClose }: Props) {
           <SheetTitle className="font-mono text-primary">{product.name}</SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-6">
+          {/* Product Image */}
+          {product.imageUrl && (
+            <div className="rounded-lg overflow-hidden border border-border">
+              <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover" />
+            </div>
+          )}
+
           {/* Status & SKU */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Badge variant="outline" className="font-mono text-xs">{product.sku}</Badge>
+            {product.barcode && <Badge variant="outline" className="font-mono text-[10px]">Barcode: {product.barcode}</Badge>}
+            {product.warehouseName && <Badge variant="outline" className="font-mono text-[10px]">{product.warehouseName}</Badge>}
             <Badge className={`${product.status === "in-stock" ? "bg-success/20 text-success" : product.status === "low" ? "bg-warning/20 text-warning" : "bg-danger/20 text-danger"}`}>
               {product.status === "in-stock" ? "In Stock" : product.status === "low" ? "Low Stock" : "Out of Stock"}
             </Badge>

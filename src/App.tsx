@@ -14,9 +14,19 @@ import Suppliers from "@/pages/Suppliers";
 import Categories from "@/pages/Categories";
 import StockHistory from "@/pages/StockHistory";
 import Pricing from "@/pages/Pricing";
+import Warehouses from "@/pages/Warehouses";
+import Reports from "@/pages/Reports";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 10_000,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -36,6 +46,8 @@ const App = () => (
               <Route path="/categories" element={<Categories />} />
               <Route path="/stock-history" element={<StockHistory />} />
               <Route path="/pricing" element={<Pricing />} />
+              <Route path="/warehouses" element={<Warehouses />} />
+              <Route path="/reports" element={<Reports />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
