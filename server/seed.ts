@@ -63,9 +63,9 @@ async function seed() {
   const [whMain, whWest, whEast] = await db
     .insert(warehouses)
     .values([
-      { name: "Main Warehouse", address: "1000 Logistics Pkwy", city: "Dallas", state: "TX", country: "US", capacity: 5000, managerName: "Robert Jones", phone: "+1 (555) 100-2000" },
-      { name: "West Coast Hub", address: "2500 Pacific Ave", city: "Los Angeles", state: "CA", country: "US", capacity: 3000, managerName: "Lisa Park", phone: "+1 (555) 200-3000" },
-      { name: "East Coast Depot", address: "800 Harbor Dr", city: "Newark", state: "NJ", country: "US", capacity: 4000, managerName: "Mike Chen", phone: "+1 (555) 300-4000" },
+      { name: "Main Warehouse", address: "1000 Logistics Pkwy", city: "Dallas", state: "TX", country: "US", capacity: 5000, managerName: "Robert Jones", phone: "+1 (555) 100-2000", latitude: "32.7767", longitude: "-96.7970" },
+      { name: "West Coast Hub", address: "2500 Pacific Ave", city: "Los Angeles", state: "CA", country: "US", capacity: 3000, managerName: "Lisa Park", phone: "+1 (555) 200-3000", latitude: "34.0522", longitude: "-118.2437" },
+      { name: "East Coast Depot", address: "800 Harbor Dr", city: "Newark", state: "NJ", country: "US", capacity: 4000, managerName: "Mike Chen", phone: "+1 (555) 300-4000", latitude: "40.7357", longitude: "-74.1724" },
     ])
     .returning();
 
@@ -143,17 +143,25 @@ async function seed() {
   console.log("  ✓ Activities");
 
   // ── Alerts (generated from product data) ───────────
-  const alertValues = insertedProducts
+  const alertValues: Array<{
+    productId: string;
+    type: "out-of-stock" | "low-stock" | "overstock";
+    message: string;
+  }> = insertedProducts
     .map((p) => {
       if (p.quantity === 0) return { productId: p.id, type: "out-of-stock" as const, message: `${p.name} is out of stock` };
       if (p.quantity <= p.reorderPoint) return { productId: p.id, type: "low-stock" as const, message: `${p.name} is below reorder point (${p.quantity}/${p.reorderPoint})` };
       if (p.quantity > p.reorderPoint * 5) return { productId: p.id, type: "overstock" as const, message: `${p.name} may be overstocked (${p.quantity} units)` };
       return null;
     })
-    .filter(Boolean);
+    .filter(Boolean) as Array<{
+    productId: string;
+    type: "out-of-stock" | "low-stock" | "overstock";
+    message: string;
+  }>;
 
   if (alertValues.length > 0) {
-    await db.insert(alerts).values(alertValues as any);
+    await db.insert(alerts).values(alertValues);
   }
 
   console.log("  ✓ Alerts");

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { InventoryProvider } from "@/context/InventoryContext";
+import { WalletProvider } from "@/context/WalletContext";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import Inventory from "@/pages/Inventory";
@@ -23,6 +24,13 @@ import Sustainability from "@/pages/Sustainability";
 import IoTSensors from "@/pages/IoTSensors";
 import Provenance from "@/pages/Provenance";
 import DemandIntelligence from "@/pages/DemandIntelligence";
+import AdvancedAnalytics from "@/pages/AdvancedAnalytics";
+import WarehouseTransfers from "@/pages/WarehouseTransfers";
+import DeadStockAnalysis from "@/pages/DeadStockAnalysis";
+import InventoryHealth from "@/pages/InventoryHealth";
+import SupplierMetrics from "@/pages/SupplierMetrics";
+import SafetyStockOptimizer from "@/pages/SafetyStockOptimizer";
+import InventoryAgingAnalysis from "@/pages/InventoryAgingAnalysis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -40,6 +48,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <WalletProvider>
       <InventoryProvider>
         <BrowserRouter>
           <Routes>
@@ -55,6 +64,13 @@ const App = () => (
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/warehouses" element={<Warehouses />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/advanced-analytics" element={<AdvancedAnalytics />} />
+              <Route path="/warehouse-transfers" element={<WarehouseTransfers />} />
+              <Route path="/dead-stock" element={<DeadStockAnalysis />} />
+              <Route path="/inventory-health" element={<InventoryHealth />} />
+              <Route path="/supplier-metrics" element={<SupplierMetrics />} />
+              <Route path="/safety-stock" element={<SafetyStockOptimizer />} />
+              <Route path="/inventory-aging" element={<InventoryAgingAnalysis />} />
               <Route path="/ai-agents" element={<AIAgents />} />
               <Route path="/digital-twin" element={<DigitalTwin />} />
               <Route path="/stress-test" element={<StressTest />} />
@@ -67,6 +83,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </InventoryProvider>
+      </WalletProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

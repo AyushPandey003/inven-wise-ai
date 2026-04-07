@@ -12,6 +12,7 @@ import stockEventsRouter from "./routes/stock-events.js";
 import warehousesRouter from "./routes/warehouses.js";
 import alertsRouter from "./routes/alerts.js";
 import dashboardRouter from "./routes/dashboard.js";
+import provenanceRouter from "./routes/provenance.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -34,6 +35,7 @@ app.use("/api/stock-events", stockEventsRouter);
 app.use("/api/warehouses", warehousesRouter);
 app.use("/api/alerts", alertsRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/provenance", provenanceRouter);
 app.use("/api/upload", uploadExtraRouter);
 
 // Health check

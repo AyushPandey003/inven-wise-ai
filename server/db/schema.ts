@@ -196,6 +196,8 @@ export const warehouses = pgTable("warehouses", {
   managerName: text("manager_name").default(""),
   phone: text("phone").default(""),
   isActive: boolean("is_active").default(true),
+  latitude: numeric("latitude", { precision: 10, scale: 6 }),
+  longitude: numeric("longitude", { precision: 10, scale: 6 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -540,6 +542,433 @@ export const perishableBatchesRelations = relations(
   ({ one }) => ({
     product: one(products, {
       fields: [perishableBatches.productId],
+      references: [products.id],
+    }),
+  })
+);
+
+// ── ABC Analysis (Pareto Classification) ────────────
+
+export const abcAnalysis = pgTable("abc_analysis", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  classification: text("classification", {
+    enum: ["A", "B", "C"],
+  }).notNull(),
+  annualConsumptionValue: numeric("annual_consumption_value", { precision: 15, scale: 2 }),
+  percentageOfValue: numeric("percentage_of_value", { precision: 5, scale: 2 }),
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+});
+
+export const abcAnalysisRelations = relations(abcAnalysis, ({ one }) => ({
+  product: one(products, {
+    fields: [abcAnalysis.productId],
+    references: [products.id],
+  }),
+}));
+
+// ── Inventory Turnover Metrics ─────────────────────
+
+export const inventoryTurnoverMetrics = pgTable("inventory_turnover_metrics", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  period: text("period", {
+    enum: ["monthly", "quarterly", "annually"],
+  }).notNull(),
+  cogs: numeric("cogs", { precision: 15, scale: 2 }),
+  averageInventory: numeric("average_inventory", { precision: 12, scale: 2 }),
+  turnoverRatio: numeric("turnover_ratio", { precision: 8, scale: 2 }),
+  daysInventoryOutstanding: numeric("days_inventory_outstanding", { precision: 8, scale: 2 }),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const inventoryTurnoverMetricsRelations = relations(
+  inventoryTurnoverMetrics,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [inventoryTurnoverMetrics.productId],
+      references: [products.id],
+    }),
+  })
+);
+
+// ── Demand Forecast ────────────────────────────────
+
+export const demandForecasts = pgTable("demand_forecasts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  forecastMethod: text("forecast_method", {
+    enum: ["simple-moving-average", "exponential-smoothing", "polynomial", "seasonal"],
+  }).notNull(),
+  forecastPeriod: integer("forecast_period").notNull(),
+  predictedDemand: numeric("predicted_demand", { precision: 12, scale: 2 }),
+  forecastedDate: timestamp("forecasted_date").notNull(),
+  confidenceInterval: numeric("confidence_interval", { precision: 5, scale: 2 }),
+  actualDemand: numeric("actual_demand", { precision: 12, scale: 2 }),
+  accuracy: numeric("accuracy", { precision: 5, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const demandForecastsRelations = relations(demandForecasts, ({ one }) => ({
+  product: one(products, {
+    fields: [demandForecasts.productId],
+    references: [products.id],
+  }),
+}));
+
+// ── Warehouse Transfers ────────────────────────────
+
+export const warehouseTransfers = pgTable("warehouse_transfers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "set null" })
+    .notNull(),
+  fromWarehouseId: uuid("from_warehouse_id")
+    .references(() => warehouses.id, { onDelete: "set null" })
+    .notNull(),
+  toWarehouseId: uuid("to_warehouse_id")
+    .references(() => warehouses.id, { onDelete: "set null" })
+    .notNull(),
+  quantity: integer("quantity").notNull(),
+  status: text("status", {
+    enum: ["pending", "in-transit", "received", "cancelled"],
+  }).default("pending"),
+  reason: text("reason"),
+  initiatedBy: text("initiated_by").default("System"),
+  expectedArrival: timestamp("expected_arrival"),
+  actualArrival: timestamp("actual_arrival"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const warehouseTransfersRelations = relations(
+  warehouseTransfers,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [warehouseTransfers.productId],
+      references: [products.id],
+    }),
+    fromWarehouse: one(warehouses, {
+      fields: [warehouseTransfers.fromWarehouseId],
+      references: [warehouses.id],
+    }),
+    toWarehouse: one(warehouses, {
+      fields: [warehouseTransfers.toWarehouseId],
+      references: [warehouses.id],
+    }),
+  })
+);
+
+// ── Inventory Recommendations ──────────────────────
+
+export const inventoryRecommendations = pgTable("inventory_recommendations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  recommendationType: text("recommendation_type", {
+    enum: ["reorder", "reduce", "transfer", "obsolete", "bundle"],
+  }).notNull(),
+  recommendedAction: text("recommended_action").notNull(),
+  priority: text("priority", {
+    enum: ["low", "medium", "high", "critical"],
+  }).default("medium"),
+  estimatedROI: numeric("estimated_roi", { precision: 8, scale: 2 }),
+  confidence: numeric("confidence", { precision: 5, scale: 2 }),
+  reasoning: text("reasoning"),
+  implementedAt: timestamp("implemented_at"),
+  actualResult: numeric("actual_result", { precision: 15, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const inventoryRecommendationsRelations = relations(
+  inventoryRecommendations,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [inventoryRecommendations.productId],
+      references: [products.id],
+    }),
+  })
+);
+
+// ── Dead Stock Detection ───────────────────────────
+
+export const deadStockProducts = pgTable("dead_stock_products", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  lastMovementDate: timestamp("last_movement_date"),
+  daysSinceLastMovement: integer("days_since_last_movement"),
+  currentStock: integer("current_stock"),
+  estimatedValue: numeric("estimated_value", { precision: 12, scale: 2 }),
+  lastSaleQty: integer("last_sale_qty"),
+  riskLevel: text("risk_level", {
+    enum: ["low", "medium", "high", "critical"],
+  }).default("low"),
+  obsolescenceScore: numeric("obsolescence_score", { precision: 5, scale: 2 }),
+  notes: text("notes"),
+  lastAnalyzed: timestamp("last_analyzed").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const deadStockProductsRelations = relations(
+  deadStockProducts,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [deadStockProducts.productId],
+      references: [products.id],
+    }),
+  })
+);
+
+// ── Inventory Aging ───────────────────────────────
+
+export const inventoryAging = pgTable("inventory_aging", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  receiptDate: timestamp("receipt_date").notNull(),
+  quantity: integer("quantity").notNull(),
+  ageInDays: integer("age_in_days"),
+  ageCategory: text("age_category", {
+    enum: ["0-30", "31-60", "61-90", "91-180", "181-365", "365+"],
+  }),
+  unitCost: numeric("unit_cost", { precision: 12, scale: 2 }),
+  totalValue: numeric("total_value", { precision: 12, scale: 2 }),
+  holdingCostAccrued: numeric("holding_cost_accrued", { precision: 12, scale: 2 }),
+  movementFrequency: integer("movement_frequency"),
+  lastAnalyzed: timestamp("last_analyzed").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const inventoryAgingRelations = relations(
+  inventoryAging,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [inventoryAging.productId],
+      references: [products.id],
+    }),
+  })
+);
+
+// ── Supplier Performance ───────────────────────────
+
+export const supplierPerformance = pgTable("supplier_performance", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  supplierId: uuid("supplier_id")
+    .references(() => suppliers.id, { onDelete: "cascade" })
+    .notNull(),
+  totalOrdersCount: integer("total_orders_count").default(0),
+  onTimeDeliveries: integer("on_time_deliveries").default(0),
+  onTimePercentage: numeric("on_time_percentage", { precision: 5, scale: 2 }),
+  averageDeliveryDays: numeric("average_delivery_days", { precision: 8, scale: 2 }),
+  defectRate: numeric("defect_rate", { precision: 5, scale: 2 }),
+  qualityScore: numeric("quality_score", { precision: 5, scale: 2 }),
+  responseTimeHours: numeric("response_time_hours", { precision: 8, scale: 2 }),
+  averageOrderValue: numeric("average_order_value", { precision: 12, scale: 2 }),
+  reliabilityIndex: numeric("reliability_index", { precision: 5, scale: 2 }),
+  lastQualityAudit: timestamp("last_quality_audit"),
+  certifications: text("certifications"),
+  notes: text("notes"),
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const supplierPerformanceRelations = relations(
+  supplierPerformance,
+  ({ one }) => ({
+    supplier: one(suppliers, {
+      fields: [supplierPerformance.supplierId],
+      references: [suppliers.id],
+    }),
+  })
+);
+
+// ── Lead Time Variance ─────────────────────────────
+
+export const leadTimeVariance = pgTable("lead_time_variance", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  supplierId: uuid("supplier_id")
+    .references(() => suppliers.id, { onDelete: "cascade" })
+    .notNull(),
+  productId: uuid("product_id").references(() => products.id, {
+    onDelete: "set null",
+  }),
+  expectedLeadTime: integer("expected_lead_time"),
+  actualLeadTime: integer("actual_lead_time"),
+  varianceDays: integer("variance_days"),
+  variancePercentage: numeric("variance_percentage", { precision: 5, scale: 2 }),
+  orderDate: timestamp("order_date").notNull(),
+  expectedDeliveryDate: timestamp("expected_delivery_date"),
+  actualDeliveryDate: timestamp("actual_delivery_date"),
+  delayReason: text("delay_reason"),
+  impact: text("impact", {
+    enum: ["minimal", "moderate", "severe", "critical"],
+  }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const leadTimeVarianceRelations = relations(
+  leadTimeVariance,
+  ({ one }) => ({
+    supplier: one(suppliers, {
+      fields: [leadTimeVariance.supplierId],
+      references: [suppliers.id],
+    }),
+    product: one(products, {
+      fields: [leadTimeVariance.productId],
+      references: [products.id],
+    }),
+  })
+);
+
+// ── Inventory Shrinkage ────────────────────────────
+
+export const inventoryShrinkage = pgTable("inventory_shrinkage", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "set null" })
+    .notNull(),
+  shrinkageType: text("shrinkage_type", {
+    enum: ["theft", "damage", "loss", "obsolescence", "miscounting", "other"],
+  }).notNull(),
+  quantity: integer("quantity").notNull(),
+  quantityPercentage: numeric("quantity_percentage", { precision: 5, scale: 2 }),
+  estimatedValue: numeric("estimated_value", { precision: 12, scale: 2 }),
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id, {
+    onDelete: "set null",
+  }),
+  reportedBy: text("reported_by").default("System"),
+  rootCause: text("root_cause"),
+  preventiveMeasures: text("preventive_measures"),
+  status: text("status", {
+    enum: ["reported", "investigated", "resolved", "closed"],
+  }).default("reported"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export const inventoryShrinkageRelations = relations(
+  inventoryShrinkage,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [inventoryShrinkage.productId],
+      references: [products.id],
+    }),
+    warehouse: one(warehouses, {
+      fields: [inventoryShrinkage.warehouseId],
+      references: [warehouses.id],
+    }),
+  })
+);
+
+// ── Safety Stock Recommendations ───────────────────
+
+export const safetyStockRecommendations = pgTable("safety_stock_recommendations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  demandMean: numeric("demand_mean", { precision: 12, scale: 2 }),
+  demandStdDev: numeric("demand_std_dev", { precision: 12, scale: 2 }),
+  leadTimeMean: numeric("lead_time_mean", { precision: 8, scale: 2 }),
+  leadTimeStdDev: numeric("lead_time_std_dev", { precision: 8, scale: 2 }),
+  serviceLevel: numeric("service_level", { precision: 5, scale: 2 }),
+  safetyStock: numeric("safety_stock", { precision: 12, scale: 2 }),
+  reorderPoint: numeric("reorder_point", { precision: 12, scale: 2 }),
+  eoq: numeric("eoq", { precision: 12, scale: 2 }),
+  holdingCostPerUnit: numeric("holding_cost_per_unit", { precision: 12, scale: 2 }),
+  orderingCostPerOrder: numeric("ordering_cost_per_order", { precision: 12, scale: 2 }),
+  lastCalculated: timestamp("last_calculated").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const safetyStockRecommendationsRelations = relations(
+  safetyStockRecommendations,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [safetyStockRecommendations.productId],
+      references: [products.id],
+    }),
+  })
+);
+
+// ── Product Lifecycle Stage ────────────────────────
+
+export const productLifecycleStage = pgTable("product_lifecycle_stage", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull().unique(),
+  stage: text("stage", {
+    enum: ["introduction", "growth", "maturity", "decline", "obsolete"],
+  }).notNull(),
+  salesTrend: numeric("sales_trend", { precision: 5, scale: 2 }),
+  marketShare: numeric("market_share", { precision: 5, scale: 2 }),
+  competitionLevel: text("competition_level", {
+    enum: ["low", "medium", "high"],
+  }),
+  profitMargin: numeric("profit_margin", { precision: 5, scale: 2 }),
+  promotionalIntensity: text("promotional_intensity", {
+    enum: ["none", "low", "medium", "high"],
+  }).default("low"),
+  daysInStage: integer("days_in_stage"),
+  nextStageExpected: timestamp("next_stage_expected"),
+  recommendations: text("recommendations"),
+  lastReviewDate: timestamp("last_review_date").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const productLifecycleStageRelations = relations(
+  productLifecycleStage,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [productLifecycleStage.productId],
+      references: [products.id],
+    }),
+  })
+);
+
+// ── Inventory Health Scores ────────────────────────
+
+export const inventoryHealthScores = pgTable("inventory_health_scores", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  overallHealthScore: numeric("overall_health_score", { precision: 5, scale: 2 }),
+  turnoverScore: numeric("turnover_score", { precision: 5, scale: 2 }),
+  agingScore: numeric("aging_score", { precision: 5, scale: 2 }),
+  shrinkageScore: numeric("shrinkage_score", { precision: 5, scale: 2 }),
+  accuracyScore: numeric("accuracy_score", { precision: 5, scale: 2 }),
+  forecastAccuracyScore: numeric("forecast_accuracy_score", { precision: 5, scale: 2 }),
+  supplierReliabilityScore: numeric("supplier_reliability_score", { precision: 5, scale: 2 }),
+  healthStatus: text("health_status", {
+    enum: ["excellent", "good", "fair", "poor", "critical"],
+  }).default("fair"),
+  riskFactors: text("risk_factors"),
+  recommendations: text("recommendations"),
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const inventoryHealthScoresRelations = relations(
+  inventoryHealthScores,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [inventoryHealthScores.productId],
       references: [products.id],
     }),
   })

@@ -363,3 +363,66 @@ export const alertsApi = {
   clearDismissed: () =>
     request<{ cleared: boolean }>("/alerts/dismissed", { method: "DELETE" }),
 };
+
+// ── Provenance ────────────────────────────────────────
+
+export interface ProvenanceRecord {
+  id: string;
+  productId: string | null;
+  eventType: string;
+  description: string;
+  actor: string;
+  location: string | null;
+  previousHash: string | null;
+  hash: string;
+  metadata: Record<string, unknown> | null;
+  verified: boolean | null;
+  createdAt: string;
+}
+
+export interface ProvenanceStats {
+  productsTracked: number;
+  totalEvents: number;
+  verifiedEvents: number;
+  integrityScore: number;
+}
+
+export interface ProvenanceVerification {
+  valid: boolean;
+  length: number;
+  brokenAt?: number;
+  message: string;
+}
+
+export const provenanceApi = {
+  stats: () => request<ProvenanceStats>("/provenance/stats"),
+  chain: (productId: string) =>
+    request<ProvenanceRecord[]>(`/provenance/chain/${productId}`),
+  record: (data: {
+    productId: string;
+    eventType: string;
+    description: string;
+    actor: string;
+    location?: string;
+    metadata?: Record<string, unknown>;
+  }) =>
+    request<ProvenanceRecord>("/provenance/record", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  verify: (productId: string) =>
+    request<ProvenanceVerification>(`/provenance/verify/${productId}`),
+  verifyEvent: (eventId: string) =>
+    request<{ valid: boolean; eventId: string; hash: string }>(`/provenance/verify-event/${eventId}`, {
+      method: "POST",
+    }),
+  seedProduct: (productId: string, supplier?: string) =>
+    request<{ seeded: number; chain: ProvenanceRecord[] }>(`/provenance/seed/${productId}`, {
+      method: "POST",
+      body: JSON.stringify({ supplier }),
+    }),
+  seedAll: () =>
+    request<{ seeded: number; total: number }>("/provenance/seed-all", {
+      method: "POST",
+    }),
+};

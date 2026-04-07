@@ -1,7 +1,8 @@
 import {
   LayoutDashboard, Package, ShoppingCart, AlertTriangle, Bot, Boxes, Truck,
   FolderOpen, History, DollarSign, Warehouse, BarChart3, Wifi, WifiOff,
-  Brain, Box, Zap, Leaf, Radio, Shield, TrendingUp,
+  Brain, Box, Zap, Leaf, Radio, Shield, TrendingUp, ArrowRight,
+  Skull, Heart, Users, TrendingDown, Calendar,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useInventory } from "@/context/InventoryContext";
@@ -25,6 +26,13 @@ const manageNav = [
   { title: "Stock History", url: "/stock-history", icon: History },
   { title: "Pricing & Variants", url: "/pricing", icon: DollarSign },
   { title: "Reports", url: "/reports", icon: BarChart3 },
+  { title: "Advanced Analytics", url: "/advanced-analytics", icon: BarChart3 },
+  { title: "Warehouse Transfers", url: "/warehouse-transfers", icon: ArrowRight },
+  { title: "Dead Stock", url: "/dead-stock", icon: Skull },
+  { title: "Inventory Health", url: "/inventory-health", icon: Heart },
+  { title: "Supplier Metrics", url: "/supplier-metrics", icon: Users },
+  { title: "Safety Stock", url: "/safety-stock", icon: TrendingDown },
+  { title: "Inventory Aging", url: "/inventory-aging", icon: Calendar },
 ];
 
 const intelligenceNav = [
