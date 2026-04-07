@@ -1,23 +1,28 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
 import { suppliers, products } from "../db/schema.js";
-import { eq, ilike, or, count } from "drizzle-orm";
+import { eq, and, ilike, or, count } from "drizzle-orm";
 
 const router = Router();
 
 // GET /api/suppliers — list with search
 router.get("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const { search = "" } = req.query as Record<string, string>;
-    const conditions = search
-      ? or(
+
+    const conditions: any[] = [eq(suppliers.tenantId, tenantId)];
+    if (search) {
+      conditions.push(
+        or(
           ilike(suppliers.name, `%${search}%`),
           ilike(suppliers.contactName, `%${search}%`)
         )
-      : undefined;
+      );
+    }
 
     const items = await db.query.suppliers.findMany({
-      where: conditions,
+      where: and(...conditions),
       orderBy: (s, { asc }) => [asc(s.name)],
     });
 
@@ -28,6 +33,7 @@ router.get("/", async (req, res) => {
         count: count(),
       })
       .from(products)
+      .where(eq(products.tenantId, tenantId))
       .groupBy(products.supplierId);
 
     const countMap = new Map(counts.map((c) => [c.supplierId, Number(c.count)]));
@@ -46,8 +52,9 @@ router.get("/", async (req, res) => {
 // GET /api/suppliers/:id
 router.get("/:id", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const supplier = await db.query.suppliers.findFirst({
-      where: eq(suppliers.id, req.params.id),
+      where: and(eq(suppliers.id, req.params.id), eq(suppliers.tenantId, tenantId)),
       with: { products: true },
     });
     if (!supplier)
@@ -62,9 +69,10 @@ router.get("/:id", async (req, res) => {
 // POST /api/suppliers
 router.post("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const [supplier] = await db
       .insert(suppliers)
-      .values(req.body)
+      .values({ ...req.body, tenantId })
       .returning();
     res.status(201).json(supplier);
   } catch (error) {
@@ -76,10 +84,11 @@ router.post("/", async (req, res) => {
 // PUT /api/suppliers/:id
 router.put("/:id", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const [supplier] = await db
       .update(suppliers)
       .set({ ...req.body, updatedAt: new Date() })
-      .where(eq(suppliers.id, req.params.id))
+      .where(and(eq(suppliers.id, req.params.id), eq(suppliers.tenantId, tenantId)))
       .returning();
     if (!supplier)
       return res.status(404).json({ error: "Supplier not found" });
@@ -93,7 +102,8 @@ router.put("/:id", async (req, res) => {
 // DELETE /api/suppliers/:id
 router.delete("/:id", async (req, res) => {
   try {
-    await db.delete(suppliers).where(eq(suppliers.id, req.params.id));
+    const tenantId = req.tenantId!;
+    await db.delete(suppliers).where(and(eq(suppliers.id, req.params.id), eq(suppliers.tenantId, tenantId)));
     res.json({ deleted: true });
   } catch (error) {
     console.error("Error deleting supplier:", error);

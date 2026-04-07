@@ -1,18 +1,20 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
 import { categories, products } from "../db/schema.js";
-import { eq, count, sum, sql } from "drizzle-orm";
+import { eq, and, count, sum, sql } from "drizzle-orm";
 
 const router = Router();
 
 // GET /api/categories — list all with stats
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const cats = await db.query.categories.findMany({
+      where: eq(categories.tenantId, tenantId),
       orderBy: (c, { asc }) => [asc(c.name)],
     });
 
-    // Fetch stats per category
+    // Fetch stats per category (also filtered by tenant)
     const stats = await db
       .select({
         categoryId: products.categoryId,
@@ -21,6 +23,7 @@ router.get("/", async (_req, res) => {
         totalValue: sql<string>`sum(${products.quantity} * ${products.unitCost}::numeric)`,
       })
       .from(products)
+      .where(eq(products.tenantId, tenantId))
       .groupBy(products.categoryId);
 
     const statsMap = new Map(stats.map((s) => [s.categoryId, s]));
@@ -44,9 +47,10 @@ router.get("/", async (_req, res) => {
 // POST /api/categories
 router.post("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const [category] = await db
       .insert(categories)
-      .values(req.body)
+      .values({ ...req.body, tenantId })
       .returning();
     res.status(201).json(category);
   } catch (error) {
@@ -58,10 +62,11 @@ router.post("/", async (req, res) => {
 // PUT /api/categories/:id
 router.put("/:id", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const [category] = await db
       .update(categories)
       .set({ ...req.body, updatedAt: new Date() })
-      .where(eq(categories.id, req.params.id))
+      .where(and(eq(categories.id, req.params.id), eq(categories.tenantId, tenantId)))
       .returning();
     if (!category)
       return res.status(404).json({ error: "Category not found" });
@@ -75,7 +80,8 @@ router.put("/:id", async (req, res) => {
 // DELETE /api/categories/:id
 router.delete("/:id", async (req, res) => {
   try {
-    await db.delete(categories).where(eq(categories.id, req.params.id));
+    const tenantId = req.tenantId!;
+    await db.delete(categories).where(and(eq(categories.id, req.params.id), eq(categories.tenantId, tenantId)));
     res.json({ deleted: true });
   } catch (error) {
     console.error("Error deleting category:", error);

@@ -13,8 +13,10 @@ import { eq, count, sum, sql, desc, and, gte } from "drizzle-orm";
 const router = Router();
 
 // GET /api/dashboard — aggregated stats for dashboard
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
+
     // Basic KPIs
     const [productStats] = await db
       .select({
@@ -23,27 +25,28 @@ router.get("/", async (_req, res) => {
         totalValue: sql<string>`sum(${products.quantity} * ${products.unitCost}::numeric)`,
         totalRetailValue: sql<string>`sum(${products.quantity} * ${products.sellingPrice}::numeric)`,
       })
-      .from(products);
+      .from(products)
+      .where(eq(products.tenantId, tenantId));
 
     const [lowStockCount] = await db
       .select({ count: count() })
       .from(products)
-      .where(eq(products.status, "low"));
+      .where(and(eq(products.tenantId, tenantId), eq(products.status, "low")));
 
     const [outOfStockCount] = await db
       .select({ count: count() })
       .from(products)
-      .where(eq(products.status, "out"));
+      .where(and(eq(products.tenantId, tenantId), eq(products.status, "out")));
 
     const [pendingOrders] = await db
       .select({ count: count() })
       .from(purchaseOrders)
-      .where(eq(purchaseOrders.status, "sent"));
+      .where(and(eq(purchaseOrders.tenantId, tenantId), eq(purchaseOrders.status, "sent")));
 
     const [activeAlerts] = await db
       .select({ count: count() })
       .from(alerts)
-      .where(eq(alerts.dismissed, false));
+      .where(and(eq(alerts.tenantId, tenantId), eq(alerts.dismissed, false)));
 
     // Category breakdown
     const categoryBreakdown = await db
@@ -56,6 +59,7 @@ router.get("/", async (_req, res) => {
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(eq(products.tenantId, tenantId))
       .groupBy(products.categoryId, categories.name, categories.color);
 
     // Top products by value
@@ -68,11 +72,13 @@ router.get("/", async (_req, res) => {
         quantity: products.quantity,
       })
       .from(products)
+      .where(eq(products.tenantId, tenantId))
       .orderBy(sql`(${products.quantity} * ${products.unitCost}::numeric) desc`)
       .limit(8);
 
     // Recent activities
     const recentActivities = await db.query.activities.findMany({
+      where: eq(activities.tenantId, tenantId),
       orderBy: [desc(activities.createdAt)],
       limit: 10,
     });
@@ -86,7 +92,7 @@ router.get("/", async (_req, res) => {
         totalOut: sql<string>`sum(case when ${stockEvents.quantityChange} < 0 then abs(${stockEvents.quantityChange}) else 0 end)`,
       })
       .from(stockEvents)
-      .where(gte(stockEvents.createdAt, fourteenDaysAgo))
+      .where(and(eq(stockEvents.tenantId, tenantId), gte(stockEvents.createdAt, fourteenDaysAgo)))
       .groupBy(sql`date_trunc('day', ${stockEvents.createdAt})::date`)
       .orderBy(sql`date_trunc('day', ${stockEvents.createdAt})::date`);
 

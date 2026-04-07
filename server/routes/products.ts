@@ -15,6 +15,7 @@ const router = Router();
 // GET /api/products — list with search, filter, sort, pagination
 router.get("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const {
       search = "",
       category,
@@ -25,13 +26,13 @@ router.get("/", async (req, res) => {
       limit = "10",
     } = req.query as Record<string, string>;
 
-    const conditions = [];
+    const conditions = [eq(products.tenantId, tenantId)];
     if (search) {
       conditions.push(
         or(
           ilike(products.name, `%${search}%`),
           ilike(products.sku, `%${search}%`)
-        )
+        )!
       );
     }
     if (category && category !== "all") {
@@ -41,7 +42,7 @@ router.get("/", async (req, res) => {
       conditions.push(eq(products.status, status as any));
     }
 
-    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const where = and(...conditions);
 
     const validSortColumns: Record<string, any> = {
       name: products.name,
@@ -91,8 +92,9 @@ router.get("/", async (req, res) => {
 // GET /api/products/:id — single product with relations
 router.get("/:id", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const product = await db.query.products.findFirst({
-      where: eq(products.id, req.params.id),
+      where: and(eq(products.id, req.params.id), eq(products.tenantId, tenantId)),
       with: {
         category: true,
         supplier: true,
@@ -113,6 +115,7 @@ router.get("/:id", async (req, res) => {
 // POST /api/products — create product
 router.post("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const data = req.body;
     const status =
       data.quantity === 0
@@ -125,6 +128,7 @@ router.post("/", async (req, res) => {
       .insert(products)
       .values({
         ...data,
+        tenantId,
         status,
         unitCost: String(data.unitCost),
         sellingPrice: String(data.sellingPrice),
@@ -134,12 +138,13 @@ router.post("/", async (req, res) => {
 
     // Log activity
     await db.insert(activities).values({
+      tenantId,
       type: "restock",
       message: `Added new product: ${product.name}`,
     });
 
     // Generate alerts
-    await generateAlertsForProduct(product);
+    await generateAlertsForProduct(product, tenantId);
 
     res.status(201).json(product);
   } catch (error) {
@@ -151,6 +156,7 @@ router.post("/", async (req, res) => {
 // PUT /api/products/:id — update product
 router.put("/:id", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const data = req.body;
     const status =
       data.quantity === 0
@@ -169,14 +175,14 @@ router.put("/:id", async (req, res) => {
         weight: data.weight ? String(data.weight) : null,
         lastUpdated: new Date(),
       })
-      .where(eq(products.id, req.params.id))
+      .where(and(eq(products.id, req.params.id), eq(products.tenantId, tenantId)))
       .returning();
 
     if (!product) return res.status(404).json({ error: "Product not found" });
 
     // Regenerate alerts
     await db.delete(alerts).where(eq(alerts.productId, product.id));
-    await generateAlertsForProduct(product);
+    await generateAlertsForProduct(product, tenantId);
 
     res.json(product);
   } catch (error) {
@@ -188,11 +194,12 @@ router.put("/:id", async (req, res) => {
 // DELETE /api/products — bulk delete
 router.delete("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const { ids } = req.body;
     if (!ids?.length) return res.status(400).json({ error: "No IDs provided" });
 
     for (const id of ids) {
-      await db.delete(products).where(eq(products.id, id));
+      await db.delete(products).where(and(eq(products.id, id), eq(products.tenantId, tenantId)));
     }
 
     res.json({ deleted: ids.length });
@@ -205,9 +212,10 @@ router.delete("/", async (req, res) => {
 // POST /api/products/:id/restock — restock a product
 router.post("/:id/restock", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const { quantity } = req.body;
     const product = await db.query.products.findFirst({
-      where: eq(products.id, req.params.id),
+      where: and(eq(products.id, req.params.id), eq(products.tenantId, tenantId)),
     });
     if (!product) return res.status(404).json({ error: "Product not found" });
 
@@ -222,11 +230,12 @@ router.post("/:id/restock", async (req, res) => {
     const [updated] = await db
       .update(products)
       .set({ quantity: newQty, status, lastUpdated: new Date() })
-      .where(eq(products.id, req.params.id))
+      .where(and(eq(products.id, req.params.id), eq(products.tenantId, tenantId)))
       .returning();
 
     // Log stock event
     await db.insert(stockEvents).values({
+      tenantId,
       productId: product.id,
       productName: product.name,
       type: "restock",
@@ -234,18 +243,19 @@ router.post("/:id/restock", async (req, res) => {
       previousQty: product.quantity,
       newQty,
       reason: "Manual restock",
-      performedBy: "Current User",
+      performedBy: req.user?.email || "Current User",
     });
 
     // Log activity
     await db.insert(activities).values({
+      tenantId,
       type: "restock",
       message: `Restocked ${quantity}x ${product.name}`,
     });
 
     // Regenerate alerts
     await db.delete(alerts).where(eq(alerts.productId, product.id));
-    await generateAlertsForProduct(updated);
+    await generateAlertsForProduct(updated, tenantId);
 
     res.json(updated);
   } catch (error) {
@@ -290,21 +300,24 @@ router.post("/:id/pricing-tiers", async (req, res) => {
   }
 });
 
-async function generateAlertsForProduct(product: any) {
+async function generateAlertsForProduct(product: any, tenantId: string) {
   if (product.quantity === 0) {
     await db.insert(alerts).values({
+      tenantId,
       productId: product.id,
       type: "out-of-stock",
       message: `${product.name} is out of stock`,
     });
   } else if (product.quantity <= product.reorderPoint) {
     await db.insert(alerts).values({
+      tenantId,
       productId: product.id,
       type: "low-stock",
       message: `${product.name} is below reorder point (${product.quantity}/${product.reorderPoint})`,
     });
   } else if (product.quantity > product.reorderPoint * 5) {
     await db.insert(alerts).values({
+      tenantId,
       productId: product.id,
       type: "overstock",
       message: `${product.name} may be overstocked (${product.quantity} units)`,

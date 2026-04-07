@@ -7,6 +7,14 @@
 
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getToken } from "./auth-api";
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
 
 // ────── API Response Types ──────────
 
@@ -57,13 +65,13 @@ export interface WarehouseTransfer {
 export const analyticsApi = {
   // ABC Analysis
   generateABCAnalysis: async (): Promise<{ summary: any; classifications: ABCAnalysisItem[] }> => {
-    const res = await fetch("/api/analytics/abc-analysis", { method: "POST" });
+    const res = await fetch("/api/analytics/abc-analysis", { method: "POST", headers: authHeaders() });
     if (!res.ok) throw new Error("Failed to generate ABC analysis");
     return res.json();
   },
 
   getABCAnalysis: async (): Promise<ABCAnalysisItem[]> => {
-    const res = await fetch("/api/analytics/abc-analysis");
+    const res = await fetch("/api/analytics/abc-analysis", { headers: authHeaders() });
     if (!res.ok) throw new Error("Failed to fetch ABC analysis");
     return res.json();
   },
@@ -74,7 +82,7 @@ export const analyticsApi = {
     topPerformers: InventoryTurnoverData[];
     slowMovers: InventoryTurnoverData[];
   }> => {
-    const res = await fetch("/api/analytics/inventory-turnover", { method: "POST" });
+    const res = await fetch("/api/analytics/inventory-turnover", { method: "POST", headers: authHeaders() });
     if (!res.ok) throw new Error("Failed to generate turnover analysis");
     return res.json();
   },
@@ -86,7 +94,7 @@ export const analyticsApi = {
   ): Promise<DemandForecast> => {
     const res = await fetch(`/api/analytics/demand-forecast/${productId}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify(options),
     });
     if (!res.ok) throw new Error("Failed to generate forecast");
@@ -99,7 +107,7 @@ export const analyticsApi = {
     count: number;
     recommendations: Recommendation[];
   }> => {
-    const res = await fetch("/api/analytics/recommendations", { method: "POST" });
+    const res = await fetch("/api/analytics/recommendations", { method: "POST", headers: authHeaders() });
     if (!res.ok) throw new Error("Failed to generate recommendations");
     return res.json();
   },
@@ -114,7 +122,7 @@ export const analyticsApi = {
   }): Promise<WarehouseTransfer> => {
     const res = await fetch("/api/analytics/warehouse-transfer", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify(transferData),
     });
     if (!res.ok) throw new Error("Failed to create transfer");
@@ -122,7 +130,7 @@ export const analyticsApi = {
   },
 
   getTransfers: async (): Promise<WarehouseTransfer[]> => {
-    const res = await fetch("/api/analytics/warehouse-transfers");
+    const res = await fetch("/api/analytics/warehouse-transfers", { headers: authHeaders() });
     if (!res.ok) throw new Error("Failed to fetch transfers");
     return res.json();
   },
@@ -225,48 +233,6 @@ export function useWarehouseTransfers() {
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchInterval: 1000 * 60 * 1, // Refetch every minute
   });
-}
-
-// ────── Component Example Usage ──────────
-
-/**
- * Example component showing how to use the hooks
- */
-export function AnalyticsExample() {
-  const { data: recommendations, isLoading } = useRecommendations();
-  const generateABC = useGenerateABCAnalysis();
-  const createTransfer = useCreateTransfer();
-
-  return (
-    <div className="space-y-4">
-      <button onClick={() => generateABC.mutate()}>
-        {generateABC.isPending ? "Generating..." : "Generate ABC Analysis"}
-      </button>
-
-      {isLoading && <p>Loading recommendations...</p>}
-
-      {recommendations?.recommendations.map((rec) => (
-        <div key={rec.productId} className="p-4 border rounded">
-          <p>{rec.action}</p>
-          <span className="badge">{rec.priority}</span>
-        </div>
-      ))}
-
-      <button
-        onClick={() => {
-          createTransfer.mutate({
-            productId: "prod-001",
-            fromWarehouseId: "wh-001",
-            toWarehouseId: "wh-002",
-            quantity: 100,
-            reason: "Rebalancing",
-          });
-        }}
-      >
-        Create Transfer
-      </button>
-    </div>
-  );
 }
 
 // ────── Utility Functions ──────────

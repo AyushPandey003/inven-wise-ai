@@ -1,14 +1,16 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
 import { warehouses, products } from "../db/schema.js";
-import { eq, count, sum, sql } from "drizzle-orm";
+import { eq, and, count, sum, sql } from "drizzle-orm";
 
 const router = Router();
 
 // GET /api/warehouses — list all with stats
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const items = await db.query.warehouses.findMany({
+      where: eq(warehouses.tenantId, tenantId),
       orderBy: (w, { asc }) => [asc(w.name)],
     });
 
@@ -21,6 +23,7 @@ router.get("/", async (_req, res) => {
         totalValue: sql<string>`sum(${products.quantity} * ${products.unitCost}::numeric)`,
       })
       .from(products)
+      .where(eq(products.tenantId, tenantId))
       .groupBy(products.warehouseId);
 
     const statsMap = new Map(stats.map((s) => [s.warehouseId, s]));
@@ -49,8 +52,9 @@ router.get("/", async (_req, res) => {
 // GET /api/warehouses/:id
 router.get("/:id", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const warehouse = await db.query.warehouses.findFirst({
-      where: eq(warehouses.id, req.params.id),
+      where: and(eq(warehouses.id, req.params.id), eq(warehouses.tenantId, tenantId)),
       with: {
         products: {
           with: { category: true },
@@ -69,9 +73,10 @@ router.get("/:id", async (req, res) => {
 // POST /api/warehouses
 router.post("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const [warehouse] = await db
       .insert(warehouses)
-      .values(req.body)
+      .values({ ...req.body, tenantId })
       .returning();
     res.status(201).json(warehouse);
   } catch (error) {
@@ -83,10 +88,11 @@ router.post("/", async (req, res) => {
 // PUT /api/warehouses/:id
 router.put("/:id", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const [warehouse] = await db
       .update(warehouses)
       .set({ ...req.body, updatedAt: new Date() })
-      .where(eq(warehouses.id, req.params.id))
+      .where(and(eq(warehouses.id, req.params.id), eq(warehouses.tenantId, tenantId)))
       .returning();
     if (!warehouse)
       return res.status(404).json({ error: "Warehouse not found" });
@@ -100,7 +106,8 @@ router.put("/:id", async (req, res) => {
 // DELETE /api/warehouses/:id
 router.delete("/:id", async (req, res) => {
   try {
-    await db.delete(warehouses).where(eq(warehouses.id, req.params.id));
+    const tenantId = req.tenantId!;
+    await db.delete(warehouses).where(and(eq(warehouses.id, req.params.id), eq(warehouses.tenantId, tenantId)));
     res.json({ deleted: true });
   } catch (error) {
     console.error("Error deleting warehouse:", error);

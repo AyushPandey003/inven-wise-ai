@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
 import { stockEvents, products, alerts, activities } from "../db/schema.js";
-import { eq, ilike, or, desc, count, sql, and, sum } from "drizzle-orm";
+import { eq, and, ilike, or, desc, count, sql, sum } from "drizzle-orm";
 
 const router = Router();
 
 // GET /api/stock-events — list with filters
 router.get("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const {
       search = "",
       type,
@@ -15,7 +16,7 @@ router.get("/", async (req, res) => {
       limit = "15",
     } = req.query as Record<string, string>;
 
-    const conditions = [];
+    const conditions: any[] = [eq(stockEvents.tenantId, tenantId)];
     if (search) {
       conditions.push(
         or(
@@ -29,7 +30,7 @@ router.get("/", async (req, res) => {
       conditions.push(eq(stockEvents.type, type as any));
     }
 
-    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const where = and(...conditions);
     const offset = parseInt(page) * parseInt(limit);
 
     const [items, totalResult, summaryResult] = await Promise.all([
@@ -47,6 +48,7 @@ router.get("/", async (req, res) => {
           eventCount: count(),
         })
         .from(stockEvents)
+        .where(eq(stockEvents.tenantId, tenantId))
         .groupBy(stockEvents.type),
     ]);
 
@@ -66,10 +68,11 @@ router.get("/", async (req, res) => {
 // POST /api/stock-events — create stock event (manual adjustment)
 router.post("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const { productId, type, quantityChange, reason, performedBy } = req.body;
 
     const product = await db.query.products.findFirst({
-      where: eq(products.id, productId),
+      where: and(eq(products.id, productId), eq(products.tenantId, tenantId)),
     });
     if (!product) return res.status(404).json({ error: "Product not found" });
 
@@ -94,6 +97,7 @@ router.post("/", async (req, res) => {
     const [event] = await db
       .insert(stockEvents)
       .values({
+        tenantId,
         productId,
         productName: product.name,
         type,
@@ -101,7 +105,7 @@ router.post("/", async (req, res) => {
         previousQty: product.quantity,
         newQty,
         reason,
-        performedBy: performedBy || "Current User",
+        performedBy: performedBy || req.user?.email || "Current User",
       })
       .returning();
 
@@ -109,12 +113,14 @@ router.post("/", async (req, res) => {
     await db.delete(alerts).where(eq(alerts.productId, productId));
     if (newQty === 0) {
       await db.insert(alerts).values({
+        tenantId,
         productId,
         type: "out-of-stock",
         message: `${product.name} is out of stock`,
       });
     } else if (newQty <= product.reorderPoint) {
       await db.insert(alerts).values({
+        tenantId,
         productId,
         type: "low-stock",
         message: `${product.name} is below reorder point (${newQty}/${product.reorderPoint})`,
@@ -123,6 +129,7 @@ router.post("/", async (req, res) => {
 
     // Log activity
     await db.insert(activities).values({
+      tenantId,
       type: type === "sale" ? "sale" : "restock",
       message: `${type}: ${Math.abs(quantityChange)}x ${product.name}`,
     });

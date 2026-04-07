@@ -1,14 +1,16 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
 import { alerts } from "../db/schema.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 const router = Router();
 
 // GET /api/alerts — list all
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const items = await db.query.alerts.findMany({
+      where: eq(alerts.tenantId, tenantId),
       orderBy: [desc(alerts.createdAt)],
     });
     res.json(items);
@@ -21,10 +23,11 @@ router.get("/", async (_req, res) => {
 // PUT /api/alerts/:id/dismiss — dismiss alert
 router.put("/:id/dismiss", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const [alert] = await db
       .update(alerts)
       .set({ dismissed: true })
-      .where(eq(alerts.id, req.params.id))
+      .where(and(eq(alerts.id, req.params.id), eq(alerts.tenantId, tenantId)))
       .returning();
     if (!alert) return res.status(404).json({ error: "Alert not found" });
     res.json(alert);
@@ -35,9 +38,10 @@ router.put("/:id/dismiss", async (req, res) => {
 });
 
 // DELETE /api/alerts/dismissed — clear dismissed alerts
-router.delete("/dismissed", async (_req, res) => {
+router.delete("/dismissed", async (req, res) => {
   try {
-    await db.delete(alerts).where(eq(alerts.dismissed, true));
+    const tenantId = req.tenantId!;
+    await db.delete(alerts).where(and(eq(alerts.dismissed, true), eq(alerts.tenantId, tenantId)));
     res.json({ cleared: true });
   } catch (error) {
     console.error("Error clearing alerts:", error);

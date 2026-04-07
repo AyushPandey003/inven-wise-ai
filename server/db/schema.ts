@@ -9,10 +9,95 @@ import {
   pgEnum,
   uuid,
   serial,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // ── Enums ──────────────────────────────────────────────
+
+export const tenantPlanEnum = pgEnum("tenant_plan", [
+  "free",
+  "starter",
+  "professional",
+  "enterprise",
+]);
+
+export const tenantStatusEnum = pgEnum("tenant_status", [
+  "active",
+  "suspended",
+  "trial",
+  "cancelled",
+]);
+
+export const userRoleEnum = pgEnum("user_role", [
+  "owner",
+  "admin",
+  "manager",
+  "viewer",
+]);
+
+export const onboardingStatusEnum = pgEnum("onboarding_status", [
+  "pending",
+  "company-info",
+  "admin-setup",
+  "business-config",
+  "completed",
+]);
+
+// ── Tenants ────────────────────────────────────────────
+
+export const tenants = pgTable("tenants", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  email: text("email").notNull(),
+  phone: text("phone").default(""),
+  logo: text("logo"),
+  industry: text("industry").default(""),
+  companySize: text("company_size").default(""),
+  country: text("country").default(""),
+  currency: text("currency").default("USD"),
+  timezone: text("timezone").default("UTC"),
+  plan: tenantPlanEnum("plan").default("free").notNull(),
+  status: tenantStatusEnum("status").default("trial").notNull(),
+  onboardingStatus: onboardingStatusEnum("onboarding_status").default("pending").notNull(),
+  settings: jsonb("settings").$type<Record<string, unknown>>().default({}),
+  trialEndsAt: timestamp("trial_ends_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const tenantsRelations = relations(tenants, ({ many }) => ({
+  users: many(users),
+}));
+
+// ── Users ──────────────────────────────────────────────
+
+export const users = pgTable("users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id")
+    .references(() => tenants.id, { onDelete: "cascade" })
+    .notNull(),
+  email: text("email").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  role: userRoleEnum("role").default("viewer").notNull(),
+  avatar: text("avatar"),
+  isActive: boolean("is_active").default(true).notNull(),
+  lastLoginAt: timestamp("last_login_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("users_email_tenant_unique").on(table.email, table.tenantId),
+]);
+
+export const usersRelations = relations(users, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [users.tenantId],
+    references: [tenants.id],
+  }),
+}));
 
 export const productStatusEnum = pgEnum("product_status", [
   "in-stock",
@@ -49,7 +134,8 @@ export const activityTypeEnum = pgEnum("activity_type", [
 
 export const categories = pgTable("categories", {
   id: uuid("id").defaultRandom().primaryKey(),
-  name: text("name").notNull().unique(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
   description: text("description").default(""),
   icon: text("icon").default("Package"),
   color: text("color").default("200 80% 50%"),
@@ -65,6 +151,7 @@ export const categoriesRelations = relations(categories, ({ many }) => ({
 
 export const suppliers = pgTable("suppliers", {
   id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   contactName: text("contact_name").default(""),
   email: text("email").default(""),
@@ -86,7 +173,8 @@ export const suppliersRelations = relations(suppliers, ({ many }) => ({
 
 export const products = pgTable("products", {
   id: uuid("id").defaultRandom().primaryKey(),
-  sku: text("sku").notNull().unique(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  sku: text("sku").notNull(),
   name: text("name").notNull(),
   description: text("description").default(""),
   categoryId: uuid("category_id").references(() => categories.id, {
@@ -186,6 +274,7 @@ export const pricingTiersRelations = relations(pricingTiers, ({ one }) => ({
 
 export const warehouses = pgTable("warehouses", {
   id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   address: text("address").default(""),
   city: text("city").default(""),
@@ -210,6 +299,7 @@ export const warehousesRelations = relations(warehouses, ({ many }) => ({
 
 export const purchaseOrders = pgTable("purchase_orders", {
   id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   supplierId: uuid("supplier_id").references(() => suppliers.id, {
     onDelete: "set null",
   }),
@@ -266,6 +356,7 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 
 export const stockEvents = pgTable("stock_events", {
   id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   productId: uuid("product_id").references(() => products.id, {
     onDelete: "set null",
   }),
@@ -290,6 +381,7 @@ export const stockEventsRelations = relations(stockEvents, ({ one }) => ({
 
 export const alerts = pgTable("alerts", {
   id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   productId: uuid("product_id").references(() => products.id, {
     onDelete: "cascade",
   }),
@@ -310,6 +402,7 @@ export const alertsRelations = relations(alerts, ({ one }) => ({
 
 export const activities = pgTable("activities", {
   id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   type: activityTypeEnum("type").notNull(),
   message: text("message").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -319,6 +412,7 @@ export const activities = pgTable("activities", {
 
 export const aiAgents = pgTable("ai_agents", {
   id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
   triggerType: text("trigger_type", {
@@ -402,6 +496,7 @@ export const carbonFootprintsRelations = relations(
 
 export const iotSensors = pgTable("iot_sensors", {
   id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   warehouseId: uuid("warehouse_id").references(() => warehouses.id, {
     onDelete: "set null",
   }),

@@ -8,14 +8,16 @@ import {
   stockEvents,
   alerts,
 } from "../db/schema.js";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 const router = Router();
 
 // GET /api/orders — list all with items
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const orders = await db.query.purchaseOrders.findMany({
+      where: eq(purchaseOrders.tenantId, tenantId),
       orderBy: [desc(purchaseOrders.createdAt)],
       with: {
         items: true,
@@ -32,8 +34,9 @@ router.get("/", async (_req, res) => {
 // GET /api/orders/:id
 router.get("/:id", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const order = await db.query.purchaseOrders.findFirst({
-      where: eq(purchaseOrders.id, req.params.id),
+      where: and(eq(purchaseOrders.id, req.params.id), eq(purchaseOrders.tenantId, tenantId)),
       with: { items: true, supplier: true },
     });
     if (!order) return res.status(404).json({ error: "Order not found" });
@@ -47,6 +50,7 @@ router.get("/:id", async (req, res) => {
 // POST /api/orders — create order with items
 router.post("/", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const { items, supplierName, supplierId, notes, expectedDate } = req.body;
     const totalAmount = items.reduce(
       (s: number, i: any) => s + i.quantity * i.unitCost,
@@ -56,6 +60,7 @@ router.post("/", async (req, res) => {
     const [order] = await db
       .insert(purchaseOrders)
       .values({
+        tenantId,
         supplierId,
         supplierName,
         totalAmount: String(totalAmount),
@@ -79,6 +84,7 @@ router.post("/", async (req, res) => {
 
     // Log activity
     await db.insert(activities).values({
+      tenantId,
       type: "order",
       message: `Purchase order created for ${supplierName}`,
     });
@@ -98,6 +104,7 @@ router.post("/", async (req, res) => {
 // PUT /api/orders/:id/status — update order status
 router.put("/:id/status", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     const { status } = req.body;
 
     const [order] = await db
@@ -107,7 +114,7 @@ router.put("/:id/status", async (req, res) => {
         updatedAt: new Date(),
         ...(status === "received" ? { receivedDate: new Date() } : {}),
       })
-      .where(eq(purchaseOrders.id, req.params.id))
+      .where(and(eq(purchaseOrders.id, req.params.id), eq(purchaseOrders.tenantId, tenantId)))
       .returning();
 
     if (!order) return res.status(404).json({ error: "Order not found" });
@@ -121,7 +128,7 @@ router.put("/:id/status", async (req, res) => {
       for (const item of items) {
         if (!item.productId) continue;
         const product = await db.query.products.findFirst({
-          where: eq(products.id, item.productId),
+          where: and(eq(products.id, item.productId), eq(products.tenantId, tenantId)),
         });
         if (!product) continue;
 
@@ -139,6 +146,7 @@ router.put("/:id/status", async (req, res) => {
           .where(eq(products.id, item.productId));
 
         await db.insert(stockEvents).values({
+          tenantId,
           productId: item.productId,
           productName: item.productName,
           type: "restock",
@@ -157,12 +165,14 @@ router.put("/:id/status", async (req, res) => {
         if (updatedProduct) {
           if (updatedProduct.quantity === 0) {
             await db.insert(alerts).values({
+              tenantId,
               productId: updatedProduct.id,
               type: "out-of-stock",
               message: `${updatedProduct.name} is out of stock`,
             });
           } else if (updatedProduct.quantity <= updatedProduct.reorderPoint) {
             await db.insert(alerts).values({
+              tenantId,
               productId: updatedProduct.id,
               type: "low-stock",
               message: `${updatedProduct.name} is below reorder point`,
@@ -172,11 +182,13 @@ router.put("/:id/status", async (req, res) => {
       }
 
       await db.insert(activities).values({
+        tenantId,
         type: "order",
         message: `PO ${order.id.slice(0, 8)} received — stock updated`,
       });
     } else {
       await db.insert(activities).values({
+        tenantId,
         type: "order",
         message: `PO ${order.id.slice(0, 8)} status → ${status}`,
       });
@@ -192,9 +204,10 @@ router.put("/:id/status", async (req, res) => {
 // DELETE /api/orders/:id
 router.delete("/:id", async (req, res) => {
   try {
+    const tenantId = req.tenantId!;
     await db
       .delete(purchaseOrders)
-      .where(eq(purchaseOrders.id, req.params.id));
+      .where(and(eq(purchaseOrders.id, req.params.id), eq(purchaseOrders.tenantId, tenantId)));
     res.json({ deleted: true });
   } catch (error) {
     console.error("Error deleting order:", error);

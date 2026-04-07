@@ -1,10 +1,30 @@
+import { getToken } from "./auth-api";
+
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers,
     ...options,
   });
+
+  // If 401, redirect to login
+  if (res.status === 401) {
+    const currentPath = window.location.pathname;
+    if (currentPath !== "/login" && currentPath !== "/register") {
+      window.location.href = "/login";
+    }
+    throw new Error("Authentication required");
+  }
+
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(error.error || "Request failed");
