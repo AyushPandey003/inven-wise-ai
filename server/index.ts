@@ -53,8 +53,10 @@ app.use("/api/dashboard", requireAuth, dashboardRouter);
 app.use("/api/provenance", requireAuth, provenanceRouter);
 app.use("/api/upload", requireAuth, uploadExtraRouter);
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
 
 export default app;
