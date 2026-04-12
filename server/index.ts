@@ -20,8 +20,22 @@ import { requireAuth } from "./middleware/auth.js";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Allow localhost (dev) + the deployed Vercel URL (FRONTEND_URL env var)
+const allowedOrigins = [
+  "http://localhost:8080",
+  "http://localhost:5173",
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+];
+
 app.use(cors({
-  origin: ["http://localhost:8080", "http://localhost:5173"],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. curl, server-to-server)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Also allow any *.vercel.app subdomain for preview deployments
+    if (/\.vercel\.app$/.test(origin)) return callback(null, true);
+    callback(new Error(`CORS blocked: ${origin}`));
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: "10mb" }));
