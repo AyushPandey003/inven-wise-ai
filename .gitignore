@@ -32,3 +32,4 @@ ignition/deployments/
 *.sln
 *.sw?
 vite-express-vercel-starter-main/
+pnpm-lock.yaml
