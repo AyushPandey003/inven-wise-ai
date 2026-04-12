@@ -31,3 +31,4 @@ ignition/deployments/
 *.njsproj
 *.sln
 *.sw?
+vite-express-vercel-starter-main/
