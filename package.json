@@ -122,7 +122,6 @@
     "globals": "^15.15.0",
     "hardhat": "^3.3.0",
     "jsdom": "^20.0.3",
-    "lovable-tagger": "^1.1.13",
     "mocha": "^11.7.5",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",

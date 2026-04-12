@@ -72,12 +72,12 @@ export default function AIAssistant() {
       const data = await response.json();
       const text = data.content?.[0]?.text || "Sorry, I couldn't generate a response.";
       setMessages((prev) => [...prev, { role: "assistant", content: text, timestamp: new Date() }]);
-    } catch (err: any) {
+    catch (err: any) {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `⚠️ Unable to reach the AI service. This feature requires a backend proxy to the Anthropic API.\n\nTo enable this, set up Lovable Cloud with an edge function.\n\n**Error:** ${err.message}`,
+          content: `⚠️ Unable to reach the AI service. This feature requires a backend proxy to the Anthropic API.\n\n**Error:** ${err.message}`,
           timestamp: new Date(),
         },
       ]);
