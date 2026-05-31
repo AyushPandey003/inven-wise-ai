@@ -14,7 +14,7 @@ npm install
 VITE_MAPBOX_TOKEN=pk.your_token_here
 ```
 
-### Step 3: Update Database
+### Step 3: Update Database command
 ```bash
 npm run db:push
 ```
